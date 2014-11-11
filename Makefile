@@ -1,10 +1,11 @@
-CC	= gcc-3.3.gcc-opt
-#CC	= gcc-3.3
+CC	= gcc-3.3
 
 # prepare check for gcc 3.3, $(GCC_3.3) will either be 0 or 1
 GCC_3.3 := $(shell expr `$(CC) -dumpversion` \>= 3.3)
 
 ETHERBOOT := yes
+XROMWELL := yes
+
 INCLUDE = -I$(TOPDIR)/grub -I$(TOPDIR)/include -I$(TOPDIR)/ -I./ -I$(TOPDIR)/fs/cdrom \
 	-I$(TOPDIR)/fs/fatx -I$(TOPDIR)/fs/grub -I$(TOPDIR)/lib/eeprom -I$(TOPDIR)/lib/crypt \
 	-I$(TOPDIR)/drivers/video -I$(TOPDIR)/drivers/ide -I$(TOPDIR)/drivers/flash -I$(TOPDIR)/lib/misc \
@@ -41,8 +42,8 @@ ETH_INCLUDE = 	-I$(TOPDIR)/etherboot/include -I$(TOPDIR)/etherboot/arch/i386/inc
 ETH_CFLAGS  = 	-O2 -march=pentium -Werror $(ETH_INCLUDE) -Wstrict-prototypes -fomit-frame-pointer -pipe -Ui386
 endif
 
-LDFLAGS-ROM     = -s -S -T $(TOPDIR)/scripts/ldscript-crom.ld
 LDFLAGS-XBEBOOT = -s -S -T $(TOPDIR)/scripts/xbeboot.ld
+LDFLAGS-ROM     = -s -S -T $(TOPDIR)/scripts/ldscript-crom.ld
 LDFLAGS-ROMBOOT = -s -S -T $(TOPDIR)/boot_rom/bootrom.ld
 LDFLAGS-VMLBOOT = -s -S -T $(TOPDIR)/boot_vml/vml_start.ld
 ifeq ($(ETHERBOOT), yes)
@@ -72,6 +73,8 @@ OBJECTS-ROMBOOT += $(TOPDIR)/obj/LED.o
                                              
 OBJECTS-CROM = $(TOPDIR)/obj/BootStartup.o
 OBJECTS-CROM += $(TOPDIR)/obj/BootResetAction.o
+OBJECTS-CROM += $(TOPDIR)/obj/launch.o
+OBJECTS-CROM += $(TOPDIR)/obj/xbeboot.o
 OBJECTS-CROM += $(TOPDIR)/obj/i2cio.o
 OBJECTS-CROM += $(TOPDIR)/obj/pci.o
 OBJECTS-CROM += $(TOPDIR)/obj/BootVgaInitialization.o
@@ -93,10 +96,10 @@ OBJECTS-CROM += $(TOPDIR)/obj/TextMenu.o
 OBJECTS-CROM += $(TOPDIR)/obj/TextMenuInit.o
 OBJECTS-CROM += $(TOPDIR)/obj/BankSelectMenuInit.o
 #OBJECTS-CROM += $(TOPDIR)/obj/IPMenuInit.o
-#OBJECTS-CROM += $(TOPDIR)/obj/URLMenuInit.o
-#OBJECTS-CROM += $(TOPDIR)/obj/KernelPathMenuInit.o
-#OBJECTS-CROM += $(TOPDIR)/obj/InitrdPathMenuInit.o
-#OBJECTS-CROM += $(TOPDIR)/obj/AppendPathMenuInit.o
+OBJECTS-CROM += $(TOPDIR)/obj/URLMenuInit.o
+OBJECTS-CROM += $(TOPDIR)/obj/KernelPathMenuInit.o
+OBJECTS-CROM += $(TOPDIR)/obj/InitrdPathMenuInit.o
+OBJECTS-CROM += $(TOPDIR)/obj/AppendPathMenuInit.o
 OBJECTS-CROM += $(TOPDIR)/obj/VideoMenuInit.o
 OBJECTS-CROM += $(TOPDIR)/obj/ResetMenuInit.o
 OBJECTS-CROM += $(TOPDIR)/obj/HDDFlashMenuInit.o
@@ -116,10 +119,10 @@ OBJECTS-CROM += $(TOPDIR)/obj/InfoMenuActions.o
 OBJECTS-CROM += $(TOPDIR)/obj/ResetMenuActions.o
 OBJECTS-CROM += $(TOPDIR)/obj/FlashMenuActions.o
 #OBJECTS-CROM += $(TOPDIR)/obj/IPMenuActions.o
-#OBJECTS-CROM += $(TOPDIR)/obj/URLMenuActions.o
-#OBJECTS-CROM += $(TOPDIR)/obj/KernelPathMenuActions.o
-#OBJECTS-CROM += $(TOPDIR)/obj/InitrdPathMenuActions.o
-#OBJECTS-CROM += $(TOPDIR)/obj/AppendPathMenuActions.o
+OBJECTS-CROM += $(TOPDIR)/obj/URLMenuActions.o
+OBJECTS-CROM += $(TOPDIR)/obj/KernelPathMenuActions.o
+OBJECTS-CROM += $(TOPDIR)/obj/InitrdPathMenuActions.o
+OBJECTS-CROM += $(TOPDIR)/obj/AppendPathMenuActions.o
 OBJECTS-CROM += $(TOPDIR)/obj/HDDMenuActions.o
 OBJECTS-CROM += $(TOPDIR)/obj/CDMenuActions.o
 OBJECTS-CROM += $(TOPDIR)/obj/LEDMenuActions.o
@@ -199,7 +202,7 @@ BOOT_ETH_DIR = boot_eth/ethboot
 BOOT_ETH_SUBDIRS = ethsubdirs
 endif
 
-all: clean resources $(BOOT_ETH_SUBDIRS) cromsubdirs xromwell.xbe vmlboot $(BOOT_ETH_DIR) cromwell.bin imagecompress
+all: resources $(BOOT_ETH_SUBDIRS) cromsubdirs xromwell.xbe vmlboot $(BOOT_ETH_DIR) cromwell.bin imagecompress
 
 ifeq ($(ETHERBOOT), yes)
 ethsubdirs: $(patsubst %, _dir_%, $(ETH_SUBDIRS))
@@ -251,6 +254,7 @@ boot_eth/ethboot: ${OBJECTS-ETH} obj/image-crom.bin
 	${OBJCOPY} --output-target=binary --strip-all obj/ethboot.elf obj/ethboot.bin
 	perl -I boot_eth boot_eth/mknbi.pl --output=$@ obj/ethboot.bin
 endif
+
 
 xromwell.xbe: ${OBJECTS-XBE}
 	${LD} -o $(TOPDIR)/obj/xbeboot.elf ${OBJECTS-XBE} ${LDFLAGS-XBEBOOT}

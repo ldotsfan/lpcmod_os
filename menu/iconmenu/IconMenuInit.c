@@ -15,21 +15,21 @@
 #include "IconMenu.h"
 #include "MenuActions.h"
 #include "lpcmod_v1.h"
-/*
+
 void InitFatXIcons(void);
 void InitNativeIcons(void);
 void InitWebBootIcons(void);
 void InitNetBootIcons(void);
-*/
+
 void IconMenuInit(void) {
-//    int i=0;
+    int i=0;
     ICON *iconPtr=NULL;
 
 //Not used for lpcmod OS.
 
 
 
-/*
+
     for (i=0; i<2; ++i) {
         //Add the cdrom icon - if you have two cdroms, you'll get two icons!
         if (tsaHarddiskInfo[i].m_fAtapi) {
@@ -56,10 +56,10 @@ void IconMenuInit(void) {
 
     // For booting a Packlet from the internet.
 #ifdef LWIP
-    InitWebBootIcons();
-    InitNetBootIcons();
+//    InitWebBootIcons();
+//    InitNetBootIcons();
 #endif
-*/
+
 if(!TSOPRecoveryMode){ //Do not try to boot anything if in TSOP recovery.
     if(fHasHardware == SYSCON_ID_V1 || fHasHardware == SYSCON_ID_V1_TSOP) {
         iconPtr = (ICON *)malloc(sizeof(ICON));
@@ -121,7 +121,7 @@ if(!TSOPRecoveryMode){ //Do not try to boot anything if in TSOP recovery.
     iconPtr->functionDataPtr = (void *)TextMenuInit();
     AddIcon(iconPtr);
 #endif
-/*
+
 #ifdef ETHERBOOT
     //Etherboot icon - if it's compiled in, it's always available.
     iconPtr = (ICON *)malloc(sizeof(ICON));
@@ -130,12 +130,12 @@ if(!TSOPRecoveryMode){ //Do not try to boot anything if in TSOP recovery.
     iconPtr->functionPtr = BootFromEtherboot;
     AddIcon(iconPtr);
 #endif    
-*/
+
     //Set this to point to the icon you want to be selected by default.
     //Otherwise, leave it alone, and the first icon will be selected.
     //selectedIcon = iconPtr;
 }
-/*
+
 void InitFatXIcons(void) {
     ICON *iconPtr=NULL;
     u8 ba[512];
@@ -169,7 +169,7 @@ void InitWebBootIcons(void) {
       iconPtr->iconSlot = ICON_SOURCE_SLOT3;
     iconPtr->szCaption = "Web Boot";
     iconPtr->functionPtr = AdvancedMenu;
-    iconPtr->functionDataPtr = (void *)IPMenuInit();
+  //  iconPtr->functionDataPtr = (void *)IPMenuInit();
     AddIcon(iconPtr);
 }
 
@@ -178,7 +178,7 @@ void InitNetBootIcons(void) {
     iconPtr = (ICON *)malloc(sizeof(ICON));
       iconPtr->iconSlot = ICON_SOURCE_SLOT3;
     iconPtr->szCaption = "Net Boot";
-    iconPtr->functionPtr = BootFromNet;
+  //  iconPtr->functionPtr = BootFromNet;
     iconPtr->functionDataPtr = NULL;
     AddIcon(iconPtr);
 }
@@ -222,4 +222,4 @@ void InitNativeIcons(void) {
         }
     }
 }
-*/
+

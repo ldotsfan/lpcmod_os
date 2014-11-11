@@ -17,12 +17,14 @@
 #include "BootFlash.h"
 #include "BootFATX.h"
 #include "lib/LPCMod/BootLPCMod.h"
+#include "xboxkrnl.h"
 #include "xbox.h"
 #include "cpu.h"
 #include "config.h"
 #include "video.h"
 #include "memory_layout.h"
 #include "lpcmod_v1.h"
+
 //#include "lib/LPCMod/BootLCD.h"
 
 JPEG jpegBackdrop;
@@ -34,10 +36,186 @@ extern volatile int nInteruptable;
 volatile CURRENT_VIDEO_MODE_DETAILS vmode;
 //extern KNOWN_FLASH_TYPE aknownflashtypesDefault[];
 
+static int ReadFile(HANDLE Handle, PVOID Buffer, ULONG Size);
+int WriteFile(HANDLE Handle, PVOID Buffer, ULONG Size);
+int SaveFile(char *szFileName,PBYTE Buffer,ULONG Size);
+void DismountFileSystems(void);
+int RemapDrive(char *szDrive);
+HANDLE OpenFile(HANDLE Root, LPCSTR Filename, LONG Length, ULONG Mode);
+BOOL GetFileSize(HANDLE File, LONGLONG *Size);
+
+int ReadFile(HANDLE Handle, PVOID Buffer, ULONG Size)
+{
+        IO_STATUS_BLOCK IoStatus;
+
+        // Try to write the buffer
+        if (!NT_SUCCESS(NtReadFile(Handle, NULL, NULL, NULL, &IoStatus,
+                Buffer, Size, NULL)))
+                return 0;
+
+        // Verify that the amount read is the correct size
+        if (IoStatus.Information != Size)
+                return 0;
+
+        return 1;
+}
+// Opens a file or directory for read-only access
+// Length parameter is negative means use strlen()
+// This was originally designed to open directories, but it turned out to be
+// too much of a hassle and was scrapped.  Use only for files with the
+// FILE_NON_DIRECTORY_FILE mode.
+HANDLE OpenFile(HANDLE Root, LPCSTR Filename, LONG Length, ULONG Mode)
+{
+        ANSI_STRING FilenameString;
+        OBJECT_ATTRIBUTES Attributes;
+        IO_STATUS_BLOCK IoStatus;
+        HANDLE Handle;
+
+        // Initialize the filename string
+        // If a length is specified, set up the string manually
+        if (Length >= 0)
+        {
+                FilenameString.Length = (USHORT) Length;
+                FilenameString.MaximumLength = (USHORT) Length;
+                FilenameString.Buffer = (PSTR) Filename;
+        }
+        // Use RtlInitAnsiString to do it for us
+        else
+                RtlInitAnsiString(&FilenameString, Filename);
+
+        // Initialize the object attributes
+        Attributes.Attributes = OBJ_CASE_INSENSITIVE;
+        Attributes.RootDirectory = Root;
+        Attributes.ObjectName = &FilenameString;
+
+        // Try to open the file or directory
+        if (!NT_SUCCESS(NtCreateFile(&Handle, GENERIC_READ | SYNCHRONIZE,
+                &Attributes, &IoStatus, NULL, 0, FILE_SHARE_READ | FILE_SHARE_WRITE
+                | FILE_SHARE_DELETE, FILE_OPEN, FILE_SYNCHRONOUS_IO_NONALERT |
+                Mode)))
+                return NULL;
+
+        return Handle;
+}
+
+
+NTSTATUS GetConfig(CONFIGENTRY *entry);
+
 void ClearScreen (void) {
     BootVideoClearScreen(&jpegBackdrop, 0, 0xffff);
 }
 
+BOOL GetFileSize(HANDLE File, LONGLONG *Size)
+{
+        FILE_NETWORK_OPEN_INFORMATION SizeInformation;
+        IO_STATUS_BLOCK IoStatus;
+
+        // Try to retrieve the file size
+        if (!NT_SUCCESS(NtQueryInformationFile(File, &IoStatus,
+                &SizeInformation, sizeof(SizeInformation),
+                FileNetworkOpenInformation)))
+                return FALSE;
+
+        *Size = SizeInformation.EndOfFile.QuadPart;
+        return TRUE;
+}
+int WriteFile(HANDLE Handle, PVOID Buffer, ULONG Size)
+{
+        IO_STATUS_BLOCK IoStatus;
+
+        // Try to write the buffer
+        if (!NT_SUCCESS(NtWriteFile(Handle, NULL, NULL, NULL, &IoStatus,
+                Buffer, Size, NULL)))
+                return 0;
+
+        // Verify that the amount written is the correct size
+        if (IoStatus.Information != Size)
+                return 0;
+
+        return 1;
+}
+
+int SaveFile(char *szFileName,PBYTE Buffer,ULONG Size) {
+
+	ANSI_STRING DestFileName;
+        IO_STATUS_BLOCK IoStatus;
+        OBJECT_ATTRIBUTES Attributes;
+        HANDLE DestHandle = NULL;
+
+	RtlInitAnsiString(&DestFileName,szFileName);
+        Attributes.RootDirectory = NULL;
+        Attributes.ObjectName = &DestFileName;
+        Attributes.Attributes = OBJ_CASE_INSENSITIVE;
+
+	if (!NT_SUCCESS(NtCreateFile(&DestHandle,
+		GENERIC_WRITE  | GENERIC_READ | SYNCHRONIZE,
+		&Attributes, &IoStatus,
+		NULL, FILE_RANDOM_ACCESS,
+		FILE_SHARE_READ, FILE_CREATE,
+		FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE))) {
+			dprintf("Error saving File\n");
+			return 0;
+	}
+
+	if(!WriteFile(DestHandle, Buffer, Size)) {
+		dprintf("Error saving File\n");
+		return 0;
+	}
+
+	NtClose(DestHandle);
+
+	return 1;
+}
+
+// Dismount all file systems
+void DismountFileSystems(void) {
+
+        ANSI_STRING String;
+
+        RtlInitAnsiString(&String, "\\Device\\Harddisk0\\Partition1");
+        IoDismountVolumeByName(&String);
+        RtlInitAnsiString(&String, "\\Device\\Harddisk0\\Partition2");
+        IoDismountVolumeByName(&String);
+        RtlInitAnsiString(&String, "\\Device\\Harddisk0\\Partition3");
+        IoDismountVolumeByName(&String);
+        RtlInitAnsiString(&String, "\\Device\\Harddisk0\\Partition4");
+        IoDismountVolumeByName(&String);
+        RtlInitAnsiString(&String, "\\Device\\Harddisk0\\Partition5");
+        IoDismountVolumeByName(&String);
+        RtlInitAnsiString(&String, "\\Device\\Harddisk0\\Partition6");
+        IoDismountVolumeByName(&String);
+}
+long LoadFile(PVOID Filename, long *lFileSize) {
+
+	HANDLE hFile;
+	PBYTE Buffer = 0;
+	ULONGLONG FileSize;
+
+        if (!(hFile = OpenFile(NULL, Filename, -1, FILE_NON_DIRECTORY_FILE))) {
+		dprintf("Error open file %s\n",Filename);
+        }
+
+	if(!GetFileSize(hFile,&FileSize)) {
+		dprintf("Error getting file size %s\n",Filename);
+	}
+
+	Buffer = MmAllocateContiguousMemoryEx(FileSize,
+			MIN_KERNEL, MAX_KERNEL, 0, PAGE_READWRITE);
+	if (!Buffer) {
+		dprintf("Error alloc memory for File %s\n",Filename);
+	}
+
+	memset(Buffer,0xff,FileSize);
+	if (!ReadFile(hFile, Buffer, FileSize)) {
+		dprintf("Error loading file %s\n",Filename);
+	}
+
+	NtClose(hFile);
+
+	*lFileSize = FileSize;
+
+	return (long)Buffer;
+}
 //////////////////////////////////////////////////////////////////////
 //
 //  BootResetAction()

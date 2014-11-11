@@ -114,13 +114,55 @@ PARAM_LFB_PAGES        = PARAM+0x32
 .org 0x1000
 section_1_start:        // this should be 0x11000
 // kernel thunk table
+.globl HalReturnToFirmware
+HalReturnToFirmware:
+ .long 0x80000000 + 49
+.globl IoCreateSymbolicLink
+IoCreateSymbolicLink:
+ 	.long 0x80000000 + 67
+.globl IoDeleteSymbolicLink
+IoDeleteSymbolicLink:
+ 	.long 0x80000000 + 69
+.globl IoDismountVolumeByName
+IoDismountVolumeByName:
+ 	.long 0x80000000 + 91
+.globl MmAllocateContiguousMemoryEx
 MmAllocateContiguousMemoryEx:
     .long    0x80000000 + 166
 MmGetPhysicalAddress:
     .long    0x80000000 + 173
 NtAllocateVirtualMemory:
     .long    0x80000000 + 184
-
+.globl MmPersistContiguousMemory
+MmPersistContiguousMemory:
+    .long 0x80000000 + 178
+.globl MmAllocateContiguousMemory
+MmAllocateContiguousMemory:
+    .long 0x80000000 + 165
+.globl MmFreeContiguousMemory
+MmFreeContiguousMemory:
+ 	.long 0x80000000 + 171
+.globl RtlInitAnsiString
+RtlInitAnsiString:
+	.long	0x80000000 + 289
+.globl NtCreateFile
+NtCreateFile:
+	.long	0x80000000 + 190
+.globl NtQueryInformationFile
+NtQueryInformationFile:
+	.long	0x80000000 + 211
+.globl NtClose
+NtClose:
+	.long	0x80000000 + 187
+.globl NtReadFile
+NtReadFile:
+	.long	0x80000000 + 219
+.globl NtWriteFile
+NtWriteFile:
+ 	.long 0x80000000 + 236
+.globl XeImageFileName
+XeImageFileName:
+    .long    0x80000000 + 326
     .long    0        // end of table
 
 .org 0x1080
